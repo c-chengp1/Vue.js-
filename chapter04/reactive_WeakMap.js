@@ -2,20 +2,21 @@
 let activeEffect
 // effect 函数用于注册副作用函数
 function effect(fn) {
-    activeEffect = fn
-    fn()
+    const effectFn = () => {
+        activeEffect = effectFn
+        fn()
+    }
+    effectFn.deps = []
+    effectFn()
 }
 // 存储副作用函数的桶
-const bucket = new Set()
+const bucket = new WeakMap()
 // 原始数据
 const data = { text: 'hello world' } // 对原始数据的代理
 const obj = new Proxy(data, {
     // 拦截读取操作 
     get(target, key) {
-        // 将副作用函数 effect 添加到存储副作用函数的桶中 
-        if (activeEffect) {
-            bucket.add(activeEffect)
-        }
+        track(target, key)
         // 返回属性值
         return target[key]
     },
@@ -23,17 +24,39 @@ const obj = new Proxy(data, {
     set(target, key, newVal) {
         // 设置属性值
         target[key] = newVal
-        // 把副作用函数从桶里取出并执行 
-        bucket.forEach(fn => fn())
-        // 返回 true 代表设置操作成功 
-        return true
+        trigger(target, key)
     }
 })
+// ----------------------------------------------------------------
+
+function track(target, key) {
+    let depsMap = bucket.get(target)
+    if (!depsMap) {
+        bucket.set(target, (depsMap = new Map()))
+    }
+    let deps = depsMap.get(key)
+    if (!deps) {
+        depsMap.set(key, (deps = new Set()))
+    } if (!activeEffect) return
+    // 最后将当前激活的副作用函数添加到“桶”里
+    deps.add(activeEffect)
+}
+
+function trigger(target, key) {
+    const depsMap = bucket.get(target)
+    if (!depsMap) return
+    const effects = depsMap.get(key)
+    // 把副作用函数从桶里取出并执行 
+    effects && effects.forEach(fn => fn())
+}
+// --------------------------------------------------------------
+
 effect(
     () => {
-        console.log('effect run')
+        // console.log('effect run')
         document.body.innerText = obj.text
     }
 )
 
+obj.text = 111
 

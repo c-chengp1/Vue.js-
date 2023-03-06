@@ -1,0 +1,10 @@
+{
+    "configurations": [
+        {
+            "type": "chrome",
+            "name": "http://.innerText ",
+            "request": "launch",
+            "url": "http://.innerText "
+        }
+    ]
+}
